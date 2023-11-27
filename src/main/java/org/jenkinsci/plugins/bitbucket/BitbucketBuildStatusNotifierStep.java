@@ -92,7 +92,14 @@ public class BitbucketBuildStatusNotifierStep extends AbstractStepImpl {
         this.commitId = commitId;
     }
 
+    private String bearerToken;
+    public String getBearerToken() { return this.bearerToken; }
+    @DataBoundSetter public void setBearerToken(String bearerToken) {
+        this.bearerToken = bearerToken;
+    }
+
     @DataBoundConstructor
+
     public BitbucketBuildStatusNotifierStep(final String buildState) {
         this.buildState = buildState;
     }
@@ -199,7 +206,12 @@ public class BitbucketBuildStatusNotifierStep extends AbstractStepImpl {
             BitbucketBuildStatus buildStatus = new BitbucketBuildStatus(buildState, buildKey, buildUrl, buildName,
                     buildDescription);
 
-            BitbucketBuildStatusHelper.notifyBuildStatus(step.getCredentials(build), false, build, taskListener, buildStatus, repoSlug, commitId);
+            String bearerToken = step.getBearerToken();
+            if (bearerToken == null) {
+                BitbucketBuildStatusHelper.notifyBuildStatus(step.getCredentials(build), false, build, taskListener, buildStatus, repoSlug, commitId);
+            } else  {
+                BitbucketBuildStatusHelper.notifyBuildStatus(bearerToken, false, build, taskListener, buildStatus, repoSlug, commitId);
+            }
 
             return null;
         }

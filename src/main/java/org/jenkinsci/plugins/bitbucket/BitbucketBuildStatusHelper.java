@@ -58,6 +58,7 @@ import org.jenkinsci.plugins.bitbucket.scm.ScmAdapter;
 import org.jenkinsci.plugins.bitbucket.validator.BitbucketHostValidator;
 import org.jenkinsci.plugins.displayurlapi.DisplayURLProvider;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.scribe.model.*;
 
 class BitbucketBuildStatusHelper {
@@ -134,7 +135,13 @@ class BitbucketBuildStatusHelper {
         Job<?, ?> project = build.getParent();
         List<BitbucketBuildStatusResource> buildStatusResources = new ArrayList<BitbucketBuildStatusResource>();
 
-        if (project instanceof WorkflowJob) {
+        if (build instanceof WorkflowRun) {
+            Collection<? extends SCM> scms = ((WorkflowRun)build).getSCMs();
+
+            for (SCM scm : scms) {
+                buildStatusResources.addAll(createBuildStatusResources(scm, build));
+            }
+        } else if (project instanceof WorkflowJob) {
             Collection<? extends SCM> scms = ((WorkflowJob)project).getSCMs();
 
             for (SCM scm : scms) {
@@ -257,6 +264,39 @@ class BitbucketBuildStatusHelper {
         }
     }
 
+    public static void notifyBuildStatus(String token, boolean overrideLatestBuild,
+                                         final Run<?, ?> build, final TaskListener listener,
+                                         BitbucketBuildStatus buildStatus, String repoSlug, String commitId) throws Exception {
+
+        List<BitbucketBuildStatusResource> buildStatusResources = createBuildStatusResources(build);
+
+        Run<?, ?> prevBuild = build.getPreviousBuild();
+        List<BitbucketBuildStatusResource> prevBuildStatusResources = new ArrayList<BitbucketBuildStatusResource>();
+        if (prevBuild != null && prevBuild.getResult() != null && prevBuild.getResult() == Result.ABORTED) {
+            prevBuildStatusResources = createBuildStatusResources(prevBuild);
+        }
+
+        for (BitbucketBuildStatusResource buildStatusResource : buildStatusResources) {
+
+            // if previous build was manually aborted by the user and revision is the same than the current one
+            // then update the bitbucket build status resource with current status and current build number
+            for (BitbucketBuildStatusResource prevBuildStatusResource : prevBuildStatusResources) {
+                if (prevBuildStatusResource.getCommitId().equals(buildStatusResource.getCommitId())) {
+                    BitbucketBuildStatus prevBuildStatus = createBitbucketBuildStatusFromBuild(prevBuild, overrideLatestBuild);
+                    buildStatus.setKey(prevBuildStatus.getKey());
+
+                    break;
+                }
+            }
+
+            if (repoSlug != null && commitId != null) {
+                buildStatusResource = new BitbucketBuildStatusResource(buildStatusResource.getOwner(), repoSlug, commitId);
+            }
+
+            sendBuildStatusNotification(token, build, buildStatusResource, buildStatus, listener);
+        }
+    }
+
     public static void sendBuildStatusNotification(final UsernamePasswordCredentials credentials,
                                                    final Run<?, ?> build,
                                                    final BitbucketBuildStatusResource buildStatusResource,
@@ -280,6 +320,29 @@ class BitbucketBuildStatusHelper {
 
         Token token = apiService.getAccessToken(OAuthConstants.EMPTY_TOKEN, null);
         apiService.signRequest(token, request);
+
+        Response response = request.send();
+
+        logger.info("This request was sent: " + request.getBodyContents());
+        logger.info("This response was received: " + response.getBody());
+        listener.getLogger().println("Sending build status " + buildStatus.getState() +
+                " for commit " + buildStatusResource.getCommitId() + " to BitBucket is done!");
+    }
+    public static void sendBuildStatusNotification(final String token,
+                                                   final Run<?, ?> build,
+                                                   final BitbucketBuildStatusResource buildStatusResource,
+                                                   final BitbucketBuildStatus buildStatus,
+                                                   final TaskListener listener) throws Exception {
+        GsonBuilder gsonBuilder = new GsonBuilder();
+        gsonBuilder.registerTypeAdapter(BitbucketBuildStatus.class, new BitbucketBuildStatusSerializer());
+        gsonBuilder.setPrettyPrinting();
+        Gson gson = gsonBuilder.create();
+
+        OAuthRequest request = new OAuthRequest(Verb.POST, buildStatusResource.generateUrl(Verb.POST));
+        request.addHeader("Content-type", "application/json");
+        request.addPayload(gson.toJson(buildStatus));
+
+        request.addHeader(OAuthConstants.HEADER, "Bearer " + token);
 
         Response response = request.send();
 
