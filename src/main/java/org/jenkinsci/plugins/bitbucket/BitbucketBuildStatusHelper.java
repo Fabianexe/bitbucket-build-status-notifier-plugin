@@ -57,6 +57,7 @@ import org.jenkinsci.plugins.bitbucket.scm.MercurialScmAdapter;
 import org.jenkinsci.plugins.bitbucket.scm.ScmAdapter;
 import org.jenkinsci.plugins.bitbucket.validator.BitbucketHostValidator;
 import org.jenkinsci.plugins.displayurlapi.DisplayURLProvider;
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.scribe.model.*;
@@ -333,6 +334,10 @@ class BitbucketBuildStatusHelper {
                                                    final BitbucketBuildStatusResource buildStatusResource,
                                                    final BitbucketBuildStatus buildStatus,
                                                    final TaskListener listener) throws Exception {
+        if (token == null) {
+            throw new Exception("Bearer Token could not be found!");
+        }
+
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.registerTypeAdapter(BitbucketBuildStatus.class, new BitbucketBuildStatusSerializer());
         gsonBuilder.setPrettyPrinting();
@@ -359,6 +364,28 @@ class BitbucketBuildStatusHelper {
                     URIRequirementBuilder.fromUri(BitbucketApi.OAUTH_ENDPOINT).build())) {
                 if (c.getId().equals(credentialsId)) {
                     return c;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public static String getBearerToken(String bearerTokenID, Run<?,?> build) {
+        if (bearerTokenID != null) {
+            for (StringCredentialsImpl c : CredentialsProvider.lookupCredentials(
+                    StringCredentialsImpl.class, build.getParent(), null,
+                    URIRequirementBuilder.fromUri(BitbucketApi.OAUTH_ENDPOINT).build())) {
+                if (c.getId().equals(bearerTokenID)) {
+                    return c.getSecret().getPlainText();
+                }
+            }
+
+            for (StandardUsernamePasswordCredentials c : CredentialsProvider.lookupCredentials(
+                    StandardUsernamePasswordCredentials.class, build.getParent(), null,
+                    URIRequirementBuilder.fromUri(BitbucketApi.OAUTH_ENDPOINT).build())) {
+                if (c.getId().equals(bearerTokenID)) {
+                    return c.getPassword().getPlainText();
                 }
             }
         }

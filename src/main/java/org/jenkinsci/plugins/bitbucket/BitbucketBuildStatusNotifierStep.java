@@ -92,10 +92,10 @@ public class BitbucketBuildStatusNotifierStep extends AbstractStepImpl {
         this.commitId = commitId;
     }
 
-    private String bearerToken;
-    public String getBearerToken() { return this.bearerToken; }
-    @DataBoundSetter public void setBearerToken(String bearerToken) {
-        this.bearerToken = bearerToken;
+    private String bearerTokenID;
+    public String getBearerTokenID() { return this.bearerTokenID; }
+    @DataBoundSetter public void setBearerTokenID(String bearerTokenID) {
+        this.bearerTokenID = bearerTokenID;
     }
 
     @DataBoundConstructor
@@ -206,11 +206,11 @@ public class BitbucketBuildStatusNotifierStep extends AbstractStepImpl {
             BitbucketBuildStatus buildStatus = new BitbucketBuildStatus(buildState, buildKey, buildUrl, buildName,
                     buildDescription);
 
-            String bearerToken = step.getBearerToken();
-            if (bearerToken == null) {
+            String bearerTokenID = step.getBearerTokenID();
+            if (bearerTokenID == null) {
                 BitbucketBuildStatusHelper.notifyBuildStatus(step.getCredentials(build), false, build, taskListener, buildStatus, repoSlug, commitId);
             } else  {
-                BitbucketBuildStatusHelper.notifyBuildStatus(bearerToken, false, build, taskListener, buildStatus, repoSlug, commitId);
+                BitbucketBuildStatusHelper.notifyBuildStatus(BitbucketBuildStatusHelper.getBearerToken(bearerTokenID, build), false, build, taskListener, buildStatus, repoSlug, commitId);
             }
 
             return null;
