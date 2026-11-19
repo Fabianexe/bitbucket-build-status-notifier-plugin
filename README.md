@@ -22,6 +22,13 @@ Please install them before if they are still not installed on your Jenkins serve
 
 ## Instructions
 
+### Repository URLs
+
+The notifier supports Bitbucket Cloud repositories on `bitbucket.org`, `ssh.bitbucket.org`, and `altssh.bitbucket.org`.
+For the [Bitbucket Cloud SSH hostname migration](https://community.atlassian.com/forums/discussion/3234032/upcoming-change-to-bitbucket-cloud-ssh-access-move-from-bitbucket-org-to-ssh-bitbucket-org),
+use `git@ssh.bitbucket.org:<workspace>/<repo>.git` or `ssh://git@ssh.bitbucket.org/<workspace>/<repo>.git` in the job's Git configuration.
+Build status notifications use the HTTPS API at `api.bitbucket.org` for all supported repository hosts.
+
 ### Create a OAuth Consumer
 First you need to get a OAuth consumer key/secret from Bitbucket.
 
